@@ -2,6 +2,7 @@ import datetime
 import uuid
 
 import sqlalchemy
+import sqlalchemy.exc
 from flask import make_response, current_app as app, jsonify, request
 from sqlalchemy import orm
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -11,6 +12,8 @@ from flask_jwt_extended import (
     get_jwt_identity, jwt_refresh_token_required
 )
 
+from application.schemas import UserSchema, TerritoriesSchema, MarkersSchema
+
 JWTManager(app)
 
 
@@ -18,10 +21,7 @@ def check_adm(user_id):  # check for admin rights
     user = User.query.filter_by(id=user_id).first()
     if user is None:
         return False
-    if user.role == 'admin':
-        return True
-    else:
-        return False
+    return user.role
 
 
 ###############################################
@@ -78,6 +78,31 @@ def refresh_token():
         return jsonify({'error': 'Token is invalid!'}), 401
 
 
+@app.route('/register', methods=['POST'])
+def register():
+    """Registers a new User"""
+    try:
+        form = request.get_json()
+        hashed_password = generate_password_hash(form['password'], method='sha256')
+        new_user = User(id=str(uuid.uuid4()),
+                        username=form['username'],
+                        password=hashed_password,
+                        name=form['name'],
+                        email=form['email'],
+                        role=False)
+        db.session.add(new_user)
+        db.session.commit()
+
+        # Database insertion failed
+    except sqlalchemy.exc.IntegrityError as e:
+        return jsonify({'error': 'Username is not unique or SQL Operation Failed'}), 500
+        # Wrong type (probably the pass)
+    except TypeError:
+        return jsonify({'error': 'TypeError'}), 400
+
+    return jsonify({'response': 'OK'}), 200
+
+
 ###############################################
 # CONTENT SECTION
 ###############################################
@@ -85,4 +110,89 @@ def refresh_token():
 @app.route('/ping')  # Test connection
 @jwt_required
 def ping():
-    return 'pong', 200
+    return get_jwt_identity(), 200
+
+
+@app.route('/api/users', methods=['GET'])
+@app.route('/api/users/<user_id>', methods=['GET', 'POST', 'PUT', 'DELETE'])
+@jwt_required
+def users(user_id=None):
+    if request.method == 'GET':
+        if user_id is None:
+            return jsonify(UserSchema(many=True).dump(User.query.all())), 200
+        user = User.query.filter_by(id=user_id).first()
+        if user is None:
+            return jsonify({'error': 'Index out of bounds'}), 400
+        return jsonify(UserSchema().dump(user)), 200
+
+
+@app.route('/api/territories', methods=['GET'])
+@app.route('/api/territories/<territory_id>', methods=['GET', 'POST', 'PUT', 'DELETE'])
+@jwt_required
+def territories(territory_id=None):
+    if request.method == 'GET':
+        if territory_id is None:
+            return jsonify(TerritoriesSchema(many=True).dump(Territories.query.all())), 200
+        territory = Territories.query.filter_by(id=territory_id).first()
+        if territory is None:
+            return jsonify({'error': 'Index out of bounds'}), 400
+        return jsonify(TerritoriesSchema().dump(territory)), 200
+    if request.method == 'POST':
+        try:
+            form = request.get_json()
+            if not form['description']:
+                form['description'] = ''
+            new_territory = Territories(id=str(uuid.uuid4()),
+                                        name=form['name'],
+                                        description=form['description'],
+                                        user=form['user'])
+            db.session.add(new_territory)
+            for i, coordinate in enumerate(form['longitude']):
+                db.session.add(TerritoryCoordinates(
+                    id=str(uuid.uuid4()),
+                    longitude=coordinate,
+                    latitude=form['latitude'][i],
+                    territory=new_territory[id]
+                ))
+            db.session.commit()
+            # Database insertion failed
+        except sqlalchemy.exc.IntegrityError:
+            return jsonify({'error': 'SQL Operation Failed'}), 500
+        except TypeError:
+            return jsonify({'error': 'TypeError'}), 400
+
+        return jsonify({'response': 'OK'}), 200
+
+
+@app.route('/api/markers', methods=['GET'])
+@app.route('/api/markers/<marker_id>', methods=['GET', 'POST', 'PUT', 'DELETE'])
+@jwt_required
+def markers(marker_id=None):
+    if request.method == 'GET':
+        if marker_id is None:
+            return jsonify(MarkersSchema(many=True).dump(Markers.query.all())), 200
+        marker = Markers.query.filter_by(id=marker_id).first()
+        if marker is None:
+            return jsonify({'error': 'Index out of bounds'}), 400
+        return jsonify(MarkersSchema().dump(marker)), 200
+    if request.method == 'POST':
+        try:
+            form = request.get_json()
+            if not form['description']:
+                form['description'] = ''
+            new_marker = Markers(id=str(uuid.uuid4()),
+                                 name=form['name'],
+                                 description=form['description'],
+                                 email=form['email'],
+                                 latitude=form['latitude'],
+                                 longitude=form['longitude'],
+                                 territory=form['territory'],
+                                 user=form['user'])
+            db.session.add(new_marker)
+            db.session.commit()
+            # Database insertion failed
+        except sqlalchemy.exc.IntegrityError:
+            return jsonify({'error': 'SQL Operation Failed'}), 500
+        except TypeError:
+            return jsonify({'error': 'TypeError'}), 400
+        return jsonify({'response': 'OK'}), 200

@@ -18,25 +18,93 @@ class User(db.Model):  # USERS
     )
     password = db.Column(
         db.String(256),
-        index=False,
-        unique=False,
         nullable=False
     )
     name = db.Column(
         db.String(256),
-        index=False,
-        unique=False,
+        nullable=False
+    )
+    email = db.Column(
+        db.String(64),
         nullable=False
     )
     role = db.Column(
-        db.String(6),
-        index=False,
-        unique=False,
+        db.Boolean(),
         nullable=False
     )
-    group = db.Column(
-        db.Integer,
-        index=False,
-        unique=False,
+    markers = db.relationship('Markers')
+    territory = db.relationship('Territories')
+
+
+class Territories(db.Model):  # TERRITORIES
+    __tablename__ = 'territories'
+    id = db.Column(
+        db.String(256),
+        primary_key=True
+    )
+    name = db.Column(
+        db.String(256),
         nullable=False
+    )
+    description = db.Column(
+        db.String(256),
+        nullable=False
+    )
+    coordinates = db.relationship('TerritoryCoordinates')
+    user = db.Column(
+        db.String(256),
+        db.ForeignKey('users.id')
+    )
+    markers = db.relationship('Markers')
+
+
+class Markers(db.Model):  # MARKERS
+    __tablename__ = 'markers'
+    id = db.Column(
+        db.String(256),
+        primary_key=True
+    )
+    name = db.Column(
+        db.String(256),
+        nullable=False
+    )
+    description = db.Column(
+        db.String(1000),
+        nullable=False
+    )
+    longitude = db.Column(
+        db.Float(),
+        nullable=False
+    )
+    latitude = db.Column(
+        db.Float(),
+        nullable=False
+    )
+    territory = db.Column(
+        db.String(256),
+        db.ForeignKey('territories.id')
+    )
+    user = db.Column(
+        db.String(256),
+        db.ForeignKey('users.id')
+    )
+
+
+class TerritoryCoordinates(db.Model):
+    __tablename__ = 'coordinates'
+    id = db.Column(
+        db.String(256),
+        primary_key=True
+    )
+    longitude = db.Column(
+        db.Float,
+        nullable=False
+    )
+    latitude = db.Column(
+        db.Float,
+        nullable=False
+    )
+    territory = db.Column(
+        db.String(256),
+        db.ForeignKey('territories.id')
     )
