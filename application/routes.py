@@ -126,8 +126,8 @@ def users(user_id=None):
         return jsonify(UserSchema().dump(user)), 200
 
 
-@app.route('/api/territories', methods=['GET'])
-@app.route('/api/territories/<territory_id>', methods=['GET', 'POST', 'PUT', 'DELETE'])
+@app.route('/api/territories', methods=['GET', 'POST'])
+@app.route('/api/territories/<territory_id>', methods=['GET', 'PUT', 'DELETE'])
 @jwt_required
 def territories(territory_id=None):
     if request.method == 'GET':
@@ -140,11 +140,12 @@ def territories(territory_id=None):
     if request.method == 'POST':
         try:
             form = request.get_json()
-            if not form['description']:
-                form['description'] = ''
+            user_id = get_jwt_identity()
+            if check_adm(user_id) is not True and form['user'] != user_id:
+                form['user'] = user_id
             new_territory = Territories(id=str(uuid.uuid4()),
                                         name=form['name'],
-                                        description=form['description'],
+                                        description=form['description'] if 'description' in form else '',
                                         user=form['user'])
             db.session.add(new_territory)
             for i, coordinate in enumerate(form['longitude']):
@@ -152,7 +153,7 @@ def territories(territory_id=None):
                     id=str(uuid.uuid4()),
                     longitude=coordinate,
                     latitude=form['latitude'][i],
-                    territory=new_territory[id]
+                    territory=new_territory.id
                 ))
             db.session.commit()
             # Database insertion failed
@@ -160,12 +161,11 @@ def territories(territory_id=None):
             return jsonify({'error': 'SQL Operation Failed'}), 500
         except TypeError:
             return jsonify({'error': 'TypeError'}), 400
-
         return jsonify({'response': 'OK'}), 200
 
 
-@app.route('/api/markers', methods=['GET'])
-@app.route('/api/markers/<marker_id>', methods=['GET', 'POST', 'PUT', 'DELETE'])
+@app.route('/api/markers', methods=['GET', 'POST'])
+@app.route('/api/markers/<marker_id>', methods=['GET', 'PUT', 'DELETE'])
 @jwt_required
 def markers(marker_id=None):
     if request.method == 'GET':
@@ -178,11 +178,9 @@ def markers(marker_id=None):
     if request.method == 'POST':
         try:
             form = request.get_json()
-            if not form['description']:
-                form['description'] = ''
             new_marker = Markers(id=str(uuid.uuid4()),
                                  name=form['name'],
-                                 description=form['description'],
+                                 description=form['description'] if 'description' in form else '',
                                  email=form['email'],
                                  latitude=form['latitude'],
                                  longitude=form['longitude'],
