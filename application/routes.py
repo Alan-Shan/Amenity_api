@@ -110,7 +110,7 @@ def register():
 @app.route('/ping')  # Test connection
 @jwt_required
 def ping():
-    return get_jwt_identity(), 200
+    return jsonify({'status': 'OK'}), 200
 
 
 @app.route('/api/users', methods=['GET'])
@@ -130,6 +130,7 @@ def users(user_id=None):
 @app.route('/api/territories/<territory_id>', methods=['GET', 'PUT', 'DELETE'])
 @jwt_required
 def territories(territory_id=None):
+    user = get_jwt_identity()
     if request.method == 'GET':
         if territory_id is None:
             return jsonify(TerritoriesSchema(many=True).dump(Territories.query.all())), 200
@@ -137,6 +138,7 @@ def territories(territory_id=None):
         if territory is None:
             return jsonify({'error': 'Index out of bounds'}), 400
         return jsonify(TerritoriesSchema().dump(territory)), 200
+
     if request.method == 'POST':
         try:
             form = request.get_json()
@@ -161,13 +163,59 @@ def territories(territory_id=None):
             return jsonify({'error': 'SQL Operation Failed'}), 500
         except TypeError:
             return jsonify({'error': 'TypeError'}), 400
-        return jsonify({'response': 'OK'}), 200
+        except KeyError as e:
+            return jsonify({'error': 'KeyError: ' + str(e)}), 400
+        return jsonify({'response': 'OK', 'id': new_territory.id}), 200
+
+    if request.method == 'PUT' and territory_id is not None:
+        territory = Territories.query.filter_by(id=territory_id).first()
+        if territory is None:
+            return jsonify({'error': 'Index out of bounds'}), 400
+        if territory.user == user or check_adm(user):
+            form = request.get_json()
+            try:
+                if 'longitude' or 'latitude' in form:
+                    db.session.query(TerritoryCoordinates).filter(TerritoryCoordinates.territory == territory_id).delete()
+                    for i, coordinate in enumerate(form['longitude']):
+                        db.session.add(TerritoryCoordinates(
+                            id=str(uuid.uuid4()),
+                            longitude=coordinate,
+                            latitude=form['latitude'][i],
+                            territory=territory_id
+                        ))
+                for parameter in form:
+                    if parameter not in ['longitude', 'latitude', 'user']:
+                        setattr(territory, parameter, form[parameter])
+                db.session.commit()
+                return jsonify({'status': 'OK'}), 200
+            except ValueError:
+                return jsonify({'error': 'Parameter is missing or invalid:'}), 400
+        else:
+            return jsonify({'status': 'Forbidden'}), 403
+
+    if request.method == 'DELETE' and territory_id is not None:
+        try:
+            obj = Territories.query.filter_by(id=territory_id).all()
+            if not obj:
+                return jsonify({'error': 'Invalid ID'}), 400
+            if not check_adm(user):
+                for territory in obj:
+                    print(territory)
+                    if not territory.user == user:
+                        return jsonify({'status': 'Forbidden'}), 403
+            db.session.query(Territories).filter(Territories.id == territory_id).delete()
+            db.session.commit()
+            return jsonify({'status': 'OK'}), 200
+        except AttributeError:
+            return jsonify({'error': 'Invalid ID'}), 400
 
 
 @app.route('/api/markers', methods=['GET', 'POST'])
 @app.route('/api/markers/<marker_id>', methods=['GET', 'PUT', 'DELETE'])
 @jwt_required
 def markers(marker_id=None):
+    user = get_jwt_identity()
+
     if request.method == 'GET':
         if marker_id is None:
             return jsonify(MarkersSchema(many=True).dump(Markers.query.all())), 200
@@ -181,7 +229,6 @@ def markers(marker_id=None):
             new_marker = Markers(id=str(uuid.uuid4()),
                                  name=form['name'],
                                  description=form['description'] if 'description' in form else '',
-                                 email=form['email'],
                                  latitude=form['latitude'],
                                  longitude=form['longitude'],
                                  territory=form['territory'],
@@ -191,6 +238,42 @@ def markers(marker_id=None):
             # Database insertion failed
         except sqlalchemy.exc.IntegrityError:
             return jsonify({'error': 'SQL Operation Failed'}), 500
+        except KeyError as e:
+            return jsonify({'error': 'KeyError: ' + str(e)}), 400
         except TypeError:
             return jsonify({'error': 'TypeError'}), 400
-        return jsonify({'response': 'OK'}), 200
+        return jsonify({'response': 'OK', 'id': new_marker.id}), 200
+
+    if request.method == 'PUT' and marker_id is not None:
+        marker = Markers.query.filter_by(id=marker_id).first()
+        if marker is None:
+            return jsonify({'error': 'Index out of bounds'}), 400
+        if marker.user == user or check_adm(user):
+            form = request.get_json()
+            try:
+                for parameter in form:
+                    if parameter is not User:
+                        setattr(marker, parameter, form[parameter])
+                db.session.commit()
+                return jsonify({'status': 'OK'}), 200
+
+            except ValueError:
+                return jsonify({'error': 'Parameter is missing or invalid:'}), 400
+
+        else:
+            return jsonify({'status': 'Forbidden'}), 403
+
+    if request.method == 'DELETE' and marker_id is not None:
+        try:
+            obj = Markers.query.filter_by(id=marker_id).all()
+            if not obj:
+                return jsonify({'error': 'Invalid ID'}), 400
+            if not check_adm(user):
+                for marker in obj:
+                    if not marker.user == user:
+                        return jsonify({'status': 'Forbidden'}), 403
+            db.session.query(Markers).filter(Markers.id == marker_id).delete()
+            db.session.commit()
+            return jsonify({'status': 'OK'}), 200
+        except AttributeError:
+            return jsonify({'error': 'Invalid ID'}), 400

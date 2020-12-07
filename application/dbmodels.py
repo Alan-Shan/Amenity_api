@@ -1,6 +1,3 @@
-import json
-from dataclasses import dataclass
-
 from . import db
 
 
@@ -32,8 +29,8 @@ class User(db.Model):  # USERS
         db.Boolean(),
         nullable=False
     )
-    markers = db.relationship('Markers')
-    territory = db.relationship('Territories')
+    markers = db.relationship('Markers', cascade="all, delete", backref='users')
+    territory = db.relationship('Territories', cascade="all, delete")
 
 
 class Territories(db.Model):  # TERRITORIES
@@ -50,12 +47,12 @@ class Territories(db.Model):  # TERRITORIES
         db.String(256),
         nullable=False
     )
-    coordinates = db.relationship('TerritoryCoordinates')
     user = db.Column(
         db.String(256),
         db.ForeignKey('users.id')
     )
-    markers = db.relationship('Markers')
+    coordinates = db.relationship('TerritoryCoordinates', cascade="all, delete")
+    markers = db.relationship('Markers', cascade="all, delete")
 
 
 class Markers(db.Model):  # MARKERS
@@ -82,11 +79,11 @@ class Markers(db.Model):  # MARKERS
     )
     territory = db.Column(
         db.String(256),
-        db.ForeignKey('territories.id')
+        db.ForeignKey('territories.id', ondelete="CASCADE")
     )
     user = db.Column(
         db.String(256),
-        db.ForeignKey('users.id')
+        db.ForeignKey('users.id', ondelete="CASCADE")
     )
 
 
@@ -106,5 +103,5 @@ class TerritoryCoordinates(db.Model):
     )
     territory = db.Column(
         db.String(256),
-        db.ForeignKey('territories.id')
+        db.ForeignKey('territories.id', ondelete="CASCADE")
     )

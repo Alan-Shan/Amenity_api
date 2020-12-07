@@ -4,6 +4,8 @@ from flask_marshmallow import Marshmallow
 from flask_sqlalchemy import SQLAlchemy
 from flask import Flask
 from flask_socketio import SocketIO
+from sqlalchemy import event
+from sqlalchemy.engine import Engine
 
 socketio = SocketIO()
 db = SQLAlchemy()
@@ -25,3 +27,10 @@ def create_app():
         from . import dbmodels
         db.create_all()
         return app
+
+
+@event.listens_for(Engine, "connect")
+def set_sqlite_pragma(dbapi_connection, connection_record):
+    cursor = dbapi_connection.cursor()
+    cursor.execute("PRAGMA foreign_keys=ON")
+    cursor.close()

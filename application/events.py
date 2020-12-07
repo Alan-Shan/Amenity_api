@@ -18,7 +18,7 @@ def login_required(f):
             if (user is None) or (datetime.fromtimestamp(data['exp']) < datetime.now()):
                 emit('error', {'msg': 'invalid_token'}, namespace='/errors')
                 return False
-        except jwt.exceptions.ExpiredSignatureError as e:
+        except jwt.exceptions.ExpiredSignatureError:
             emit('error', {'msg': 'invalid_token'}, namespace='/errors')
             return False
         return f(message, user)
