@@ -57,7 +57,7 @@ def authentication():
     return make_response('could not verify', 403, {'WWW.Authentication': 'Basic realm: "login required"'})
 
 
-@app.route('/refresh_token', methods=['POST'])  # Token refresher
+@app.route('/refresh_token', methods=['GET'])  # Token refresher
 @jwt_refresh_token_required
 def refresh_token():
     """
