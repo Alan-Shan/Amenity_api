@@ -29,6 +29,10 @@ class User(db.Model):  # USERS
         db.Boolean(),
         nullable=False
     )
+    community = db.Column(
+        db.String(256),
+        db.ForeignKey('communities.id')
+    )
     markers = db.relationship('Markers', cascade="all, delete", backref='users')
     territory = db.relationship('Territories', cascade="all, delete")
 
@@ -105,3 +109,26 @@ class TerritoryCoordinates(db.Model):
         db.String(256),
         db.ForeignKey('territories.id', ondelete="CASCADE")
     )
+
+
+class Communities(db.Model):
+    __tablename__ = 'communities'
+
+    id = db.Column(
+        db.String(256),
+        primary_key=True
+    )
+    name = db.Column(
+        db.String(256),
+        nullable=False
+    )
+    longitude = db.Column(
+        db.Float,
+        nullable=False
+    )
+    latitude = db.Column(
+        db.Float,
+        nullable=False
+    )
+
+    users = db.relationship('User')

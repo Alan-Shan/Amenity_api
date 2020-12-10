@@ -12,7 +12,7 @@ from flask_jwt_extended import (
     get_jwt_identity, jwt_refresh_token_required
 )
 
-from application.schemas import UserSchema, TerritoriesSchema, MarkersSchema
+from application.schemas import UserSchema, TerritoriesSchema, MarkersSchema, CommunitiesSchema
 
 JWTManager(app)
 
@@ -52,7 +52,11 @@ def authentication():
         refreshtoken = create_refresh_token(identity=user.id,
                                             expires_delta=datetime.timedelta(days=7))
         return jsonify({'token': token,
-                        'refresh_token': refreshtoken}), 200
+                        'refresh_token': refreshtoken,
+                        'id': user.id,
+                        'email': user.email,
+                        'username': user.username,
+                        'name': user.name}), 200
 
     return make_response('could not verify', 403, {'WWW.Authentication': 'Basic realm: "login required"'})
 
@@ -175,7 +179,8 @@ def territories(territory_id=None):
             form = request.get_json()
             try:
                 if 'longitude' or 'latitude' in form:
-                    db.session.query(TerritoryCoordinates).filter(TerritoryCoordinates.territory == territory_id).delete()
+                    db.session.query(TerritoryCoordinates).filter(
+                        TerritoryCoordinates.territory == territory_id).delete()
                     for i, coordinate in enumerate(form['longitude']):
                         db.session.add(TerritoryCoordinates(
                             id=str(uuid.uuid4()),
@@ -277,3 +282,35 @@ def markers(marker_id=None):
             return jsonify({'status': 'OK'}), 200
         except AttributeError:
             return jsonify({'error': 'Invalid ID'}), 400
+
+
+@app.route('/api/communities', methods=['GET', 'POST'])
+@app.route('/api/communities/<community_id>', methods=['GET', 'PUT', 'DELETE'])
+@jwt_required
+def communities(community_id=None):
+    if request.method == 'GET':
+        if community_id is None:
+            return jsonify(CommunitiesSchema(many=True).dump(Communities.query.all())), 200
+        community = Communities.query.filter_by(id=community_id).first()
+        if community is None:
+            return jsonify({'error': 'Index out of bounds'}), 400
+        return jsonify(CommunitiesSchema().dump(community)), 200
+
+    if request.method == 'POST':
+        try:
+            form = request.get_json()
+            new_community = Communities(id=str(uuid.uuid4()),
+                                        name=form['name'],
+                                        latitude=form['latitude'],
+                                        longitude=form['longitude'],
+                                        user=form['user'])
+            db.session.add(new_community)
+            db.session.commit()
+            # Database insertion failed
+        except sqlalchemy.exc.IntegrityError:
+            return jsonify({'error': 'SQL Operation Failed'}), 500
+        except KeyError as e:
+            return jsonify({'error': 'KeyError: ' + str(e)}), 400
+        except TypeError:
+            return jsonify({'error': 'TypeError'}), 400
+        return jsonify({'response': 'OK', 'id': new_community.id}), 200
