@@ -117,7 +117,7 @@ def ping():
     return jsonify({'status': 'OK'}), 200
 
 
-@app.route('/api/users', methods=['GET'])
+@app.route('/api/users', methods=['GET', 'POST'])
 @app.route('/api/users/<user_id>', methods=['GET', 'POST', 'PUT', 'DELETE'])
 @jwt_required
 def users(user_id=None):
@@ -128,6 +128,9 @@ def users(user_id=None):
         if user is None:
             return jsonify({'error': 'Index out of bounds'}), 400
         return jsonify(UserSchema().dump(user)), 200
+
+    if request.method == 'POST' and user_id is None:
+        pass
 
 
 @app.route('/api/territories', methods=['GET', 'POST'])
@@ -237,6 +240,7 @@ def markers(marker_id=None):
                                  latitude=form['latitude'],
                                  longitude=form['longitude'],
                                  territory=form['territory'],
+                                 type=form['type'],
                                  user=form['user'])
             db.session.add(new_marker)
             db.session.commit()
@@ -299,11 +303,15 @@ def communities(community_id=None):
     if request.method == 'POST':
         try:
             form = request.get_json()
+            print(str(form))
             new_community = Communities(id=str(uuid.uuid4()),
-                                        name=form['name'],
-                                        latitude=form['latitude'],
-                                        longitude=form['longitude'],
-                                        user=form['user'])
+                                        name=form['name']
+                                        # latitude=form['latitude'],
+                                        # longitude=form['longitude'],
+                                        )
+            user = get_jwt_identity()
+            user = User.query.filter_by(id=user).first()
+            user.community = new_community.id
             db.session.add(new_community)
             db.session.commit()
             # Database insertion failed

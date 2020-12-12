@@ -81,6 +81,11 @@ class Markers(db.Model):  # MARKERS
         db.Float(),
         nullable=False
     )
+    type = db.Column(
+        db.Integer(),
+        nullable=True
+    )
+
     territory = db.Column(
         db.String(256),
         db.ForeignKey('territories.id', ondelete="CASCADE")
@@ -124,11 +129,11 @@ class Communities(db.Model):
     )
     longitude = db.Column(
         db.Float,
-        nullable=False
+        nullable=True
     )
     latitude = db.Column(
         db.Float,
-        nullable=False
+        nullable=True
     )
 
     users = db.relationship('User')

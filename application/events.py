@@ -40,7 +40,6 @@ def joined(data, user):
     response emitted from the server to all connected clients"""
     room = data['room']
     join_room(room)
-    print(room + " for " + user.username)
     emit('status', {'msg': user.name + ' теперь в чате.'}, room=room)
 
 

@@ -35,4 +35,4 @@ class TerritoriesSchema(ma.SQLAlchemySchema):
 class MarkersSchema(ma.SQLAlchemySchema):
     class Meta:
         model = Markers
-        fields = ("id", "name", "description", "longitude", "latitude", "user", "territory")
+        fields = ("id", "name", "description", "longitude", "latitude", "user", "territory", "type")
