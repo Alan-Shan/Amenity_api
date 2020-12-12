@@ -303,7 +303,6 @@ def communities(community_id=None):
     if request.method == 'POST':
         try:
             form = request.get_json()
-            print(str(form))
             new_community = Communities(id=str(uuid.uuid4()),
                                         name=form['name']
                                         # latitude=form['latitude'],
